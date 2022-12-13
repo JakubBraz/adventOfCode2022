@@ -2,7 +2,7 @@ import os, sys
 
 # put -1 to run everything
 # put 0 to run the last day
-DAY_TO_RUN = -1
+DAY_TO_RUN = 0
 
 days = [f[:-3] for f in os.listdir('.') if "day" in f]
 days.sort(key=lambda d: int(d[3:]))
