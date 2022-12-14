@@ -21,7 +21,7 @@ def cave_boundaries(rock_map):
     return max(rock_map, key=lambda x: x[1])[1]
 
 
-def simulate_sand3(rocks, cave_limit, end_simulation):
+def simulate_sand_piece(rocks, cave_limit, end_simulation):
     x, y = 500, 0
     while True:
         if (x, y + 1) not in rocks and y < cave_limit + 1:
@@ -40,7 +40,7 @@ def simulate_sand3(rocks, cave_limit, end_simulation):
 
 def simulate(init_rocks, limits, end_simulation):
     rocks = set(init_rocks)
-    while new_sand := simulate_sand3(rocks, limits, end_simulation):
+    while new_sand := simulate_sand_piece(rocks, limits, end_simulation):
         rocks |= {(new_sand[0], new_sand[1])}
     return len(rocks) - len(init_rocks)
 
