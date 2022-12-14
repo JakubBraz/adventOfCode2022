@@ -340,3 +340,7 @@ addx 3
 addx 5
 addx -16
 noop"""
+
+
+if __name__ == '__main__':
+    main()

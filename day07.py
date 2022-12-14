@@ -2136,3 +2136,7 @@ $ cd ..
 $ cd vtzvf
 $ ls
 43248 jwdv.qct"""
+
+
+if __name__ == '__main__':
+    main()

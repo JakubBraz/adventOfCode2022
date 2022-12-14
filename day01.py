@@ -2268,3 +2268,7 @@ def day_input():
 9320
 9865
 11517"""
+
+
+if __name__ == '__main__':
+    main()

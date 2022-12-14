@@ -156,3 +156,7 @@ Monkey 7:
   Test: divisible by 13
     If true: throw to monkey 4
     If false: throw to monkey 0"""
+
+
+if __name__ == '__main__':
+    main()

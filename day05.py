@@ -573,3 +573,7 @@ move 9 from 5 to 1
 move 5 from 5 to 2
 move 1 from 6 to 7
 move 5 from 5 to 8"""
+
+
+if __name__ == '__main__':
+    main()
