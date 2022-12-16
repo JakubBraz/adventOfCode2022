@@ -92,6 +92,17 @@ def find_random(graph, all_dists, not_zero):
             print(s, current_max)
 
 
+def find_random2(graph, all_dists, not_zero):
+    current_max = 0
+    while True:
+        s = sample(not_zero, len(not_zero))
+        res1 = result_for_perm(graph, all_dists, s[:len(s)//2], 'AA', 26)
+        res2 = result_for_perm(graph, all_dists, s[len(s)//2:], 'AA', 26)
+        if res1 + res2 > current_max:
+            current_max = res1 + res2
+            print(s, current_max)
+
+
 def main():
     # graph = parse_input(day_input_test())
     graph = parse_input(day_input())
@@ -111,7 +122,8 @@ def main():
     print(result_for_perm(graph, all_dists, sample(not_zero, len(not_zero)), 'AA', 30))
     # result1 = solve1(graph, all_dists, not_zero)
     # print(result1)
-    find_random(graph, all_dists, not_zero)
+    # find_random(graph, all_dists, not_zero)
+    find_random2(graph, all_dists, not_zero)
 
 
 def parse_input(arg):
