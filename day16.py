@@ -3,7 +3,7 @@ import heapq
 from collections import defaultdict
 from itertools import permutations
 from functools import reduce
-
+from random import sample
 
 INF = 1024
 
@@ -42,33 +42,11 @@ def calculate_gain(graph, current, time):
     return gains, path_to_best_gain
 
 
-def traverse(graph, current, remaining_time, opened, memo):
-    rate, neigh = graph[current]
-    print('jestem w', current, 'czas', remaining_time, 'otwarte', opened)
-    if remaining_time <= 0:
-        return 0
-    item_true = (current, remaining_time, True)
-    item_false = (current, remaining_time, False)
-    # not_open = (memo[item_false] if item_false in memo
-    not_open = (memo[item_false] if False
-                else max(traverse(graph, n, remaining_time - 1, opened, memo) for n in neigh))
-    memo[item_false] = not_open
-    if rate == 0 or current in opened:
-        return not_open
-    gain = rate * (remaining_time - 1)
-    # open_valve = (memo[item_true] if item_true in memo
-    open_valve = (memo[item_true] if False
-                  else max(traverse(graph, n, remaining_time - 1, opened | {current}, memo) + gain for n in neigh))
-    result = max(not_open, open_valve)
-    memo[item_true] = open_valve
-    return result
-
-
 def count_perm(acc, val):
     i, prev = acc
     if i % 1_000_000 == 0:
         print(i, acc)
-    return i+1, max(prev, val)
+    return i + 1, max(prev, val)
 
 
 def result_for_perm(graph, all_dists, perm, current, time):
@@ -84,15 +62,34 @@ def result_for_perm(graph, all_dists, perm, current, time):
     return result
 
 
-def solve1(graph, all_dists):
-    # not_zero = [(k, v[0]) for k, v in graph.items() if v[0] > 0]
-    not_zero = [k for k, v in graph.items() if v[0] > 0]
+def solve1(graph, all_dists, not_zero):
     # perms = [x for x in permutations(not_zero)]
     perms = (result_for_perm(graph, all_dists, p, 'AA', 30) for p in permutations(not_zero))
     # print([x for x in perms])
     return reduce(count_perm, perms, (0, 0))
     # return max(perms, key=lambda x: x[1])
     # print(result_for_perm(graph, all_dists, ('DD', 'BB', 'JJ', 'HH', 'EE', 'CC'), 'AA', 30))
+
+
+def traverse(graph, all_dists, to_visit, visited, current, pos, time, prev, res):
+    if not to_visit:
+        return res
+    next_node = list(to_visit)[0]
+    d = all_dists[current][next_node]
+    time -= d
+    if time <= 0:
+        return res
+    result = (time - 1) * graph[next_node][0]
+
+
+def find_random(graph, all_dists, not_zero):
+    current_max = 0
+    while True:
+        s = sample(not_zero, len(not_zero))
+        res = result_for_perm(graph, all_dists, s, 'AA', 30)
+        if res > current_max:
+            current_max = res
+            print(s, current_max)
 
 
 def main():
@@ -109,8 +106,12 @@ def main():
     gains, path = calculate_gain(graph, 'AA', 30)
     print(gains)
     print(path)
-    result1 = solve1(graph, all_dists)
-    print(result1)
+    not_zero = [k for k, v in graph.items() if v[0] > 0]
+    print(not_zero)
+    print(result_for_perm(graph, all_dists, sample(not_zero, len(not_zero)), 'AA', 30))
+    # result1 = solve1(graph, all_dists, not_zero)
+    # print(result1)
+    find_random(graph, all_dists, not_zero)
 
 
 def parse_input(arg):
