@@ -1,9 +1,8 @@
 import re
 import heapq
 from collections import defaultdict
-from itertools import permutations
-from functools import reduce
 from random import sample
+from multiprocessing import Pool, cpu_count
 
 INF = 1024
 
@@ -12,7 +11,6 @@ def calculate_distance(graph, current):
     to_visit = []
     dist = defaultdict(lambda: INF)
     dist[current] = 0
-    prev = {}
     for v in graph.keys():
         if v != current:
             heapq.heappush(to_visit, (INF, v))
@@ -23,33 +21,11 @@ def calculate_distance(graph, current):
             if v not in dist:
                 alt = dist_u + 1
                 dist[v] = min(alt, dist[v])
-                prev[v] = u
                 heapq.heappush(to_visit, (dist[v], v))
-    return dist, prev
+    return dist
 
 
-def build_path(prev, current, dst):
-    if current == dst:
-        return []
-    return build_path(prev, current, prev[dst]) + [prev[dst]]
-
-
-def calculate_gain(graph, current, time):
-    dists, prev = calculate_distance(graph, current)
-    gains = {k: (time - dists[k]) * v[0] for k, v in graph.items()}
-    best_gain = max(gains.items(), key=lambda x: x[1])[0]
-    path_to_best_gain = build_path(prev, current, best_gain) + [best_gain]
-    return gains, path_to_best_gain
-
-
-def count_perm(acc, val):
-    i, prev = acc
-    if i % 1_000_000 == 0:
-        print(i, acc)
-    return i + 1, max(prev, val)
-
-
-def result_for_perm(graph, all_dists, perm, current, time):
+def result_for_permutation(graph, all_dists, perm, current, time):
     result = 0
     for v in perm:
         d = all_dists[current][v]
@@ -62,68 +38,55 @@ def result_for_perm(graph, all_dists, perm, current, time):
     return result
 
 
-def solve1(graph, all_dists, not_zero):
-    # perms = [x for x in permutations(not_zero)]
-    perms = (result_for_perm(graph, all_dists, p, 'AA', 30) for p in permutations(not_zero))
-    # print([x for x in perms])
-    return reduce(count_perm, perms, (0, 0))
-    # return max(perms, key=lambda x: x[1])
-    # print(result_for_perm(graph, all_dists, ('DD', 'BB', 'JJ', 'HH', 'EE', 'CC'), 'AA', 30))
+def find_index1(graph, all_dists, done, to_find, prev_result, limit):
+    time = 30
+    result = prev_result
+    for _ in range(limit):
+        permutation = done + sample(to_find, len(to_find))
+        res = result_for_permutation(graph, all_dists, permutation, 'AA', time)
+        result = max(result, (res, permutation))
+    return result
 
 
-def traverse(graph, all_dists, to_visit, visited, current, pos, time, prev, res):
-    if not to_visit:
-        return res
-    next_node = list(to_visit)[0]
-    d = all_dists[current][next_node]
-    time -= d
-    if time <= 0:
-        return res
-    result = (time - 1) * graph[next_node][0]
+def find_index2(graph, all_dists, done, to_find, prev_result, limit):
+    time = 26
+    result = prev_result
+    result_len = (len(done) + len(to_find)) // 2
+    for _ in range(limit):
+        permutation = done + sample(to_find, len(to_find))
+        res1 = result_for_permutation(graph, all_dists, permutation[:result_len], 'AA', time)
+        res2 = result_for_permutation(graph, all_dists, permutation[result_len:], 'AA', time)
+        result = max(result, ((res1 + res2), permutation))
+    return result
 
 
-def find_random(graph, all_dists, not_zero):
-    current_max = 0
-    while True:
-        s = sample(not_zero, len(not_zero))
-        res = result_for_perm(graph, all_dists, s, 'AA', 30)
-        if res > current_max:
-            current_max = res
-            print(s, current_max)
+def simulation(graph, all_dists, not_zero, find_index_function, limit):
+    done = []
+    result = (0, [])
+    for i in range(len(not_zero)):
+        to_find = [x for x in not_zero - set(done)]
+        result = find_index_function(graph, all_dists, done, to_find, result, limit)
+        done.append(result[1][i])
+    return result[0]
 
 
-def find_random2(graph, all_dists, not_zero):
-    current_max = 0
-    while True:
-        s = sample(not_zero, len(not_zero))
-        res1 = result_for_perm(graph, all_dists, s[:len(s)//2], 'AA', 26)
-        res2 = result_for_perm(graph, all_dists, s[len(s)//2:], 'AA', 26)
-        if res1 + res2 > current_max:
-            current_max = res1 + res2
-            print(s, current_max)
+def run_process(args):
+    graph, all_dists, not_zero, find_index, limit = args
+    return simulation(graph, all_dists, not_zero, find_index, limit)
 
 
 def main():
     # graph = parse_input(day_input_test())
     graph = parse_input(day_input())
-    print(graph)
-    # result1 = traverse(graph, 'AA', 4, set(), {})
-    # print(result1)
-    dists, prev = calculate_distance(graph, 'AA')
-    all_dists = {k: dict(calculate_distance(graph, k)[0]) for k in graph}
-    print('ALL DISTS', all_dists)
-    print(dists)
-    # print(prev)
-    gains, path = calculate_gain(graph, 'AA', 30)
-    print(gains)
-    print(path)
-    not_zero = [k for k, v in graph.items() if v[0] > 0]
-    print(not_zero)
-    print(result_for_perm(graph, all_dists, sample(not_zero, len(not_zero)), 'AA', 30))
-    # result1 = solve1(graph, all_dists, not_zero)
-    # print(result1)
-    # find_random(graph, all_dists, not_zero)
-    find_random2(graph, all_dists, not_zero)
+    all_dists = {k: dict(calculate_distance(graph, k)) for k in graph}
+    not_zero = {k for k, v in graph.items() if v[0] > 0}
+
+    count = cpu_count()
+    with Pool(count) as p:
+        result1 = p.map(run_process, [(graph, all_dists, not_zero, find_index1, 10_000)] * 16)
+        print(max(result1))
+        result2 = p.map(run_process, [(graph, all_dists, not_zero, find_index2, 50_000)] * 16)
+        print(max(result2))
 
 
 def parse_input(arg):
