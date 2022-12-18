@@ -1,4 +1,5 @@
-from collections import defaultdict
+from multiprocessing import Pool, cpu_count
+import time
 
 
 def add_range(ranges, r):
@@ -11,46 +12,24 @@ def add_range(ranges, r):
 
 def find_intersect(ranges, ran):
     result = {r for r in ranges if (ran[0] <= r[0] <= ran[1] or ran[0] <= r[1] <= ran[1] or
-                                  r[0] <= ran[0] <= r[1] or r[0] <= ran[1] <= r[1])}
+                                    r[0] <= ran[0] <= r[1] or r[0] <= ran[1] <= r[1])}
     return result | {(ran[0], ran[1])}
 
 
-def find_no_beacons(b_s, beacons, target_line):
+def find_no_beacons(b_s, target_line):
     s_x, s_y, b_x, b_y = b_s
     dist = abs(s_x - b_x) + abs(s_y - b_y)
-    # print("SENSOR BEACON", b_s)
-    # print('dist to', dist)
-    # res = set()
-    # y_lim1 = s_y - dist
-    # y_lim2 = s_y + dist + 1
-    # if y_lim1 <= target_line <= y_lim2:
-    #     for i in range(dist - abs(s_y - target_line) + 1):
-    #         if (s_x + i, target_line) not in beacons:
-    #             res.add((s_x + i, target_line))
-    #         if (s_x - i, target_line) not in beacons:
-    #             res.add((s_x - i, target_line))
-    # return res
     i = dist - abs(s_y - target_line)
     r1, r2 = s_x - i, s_x + i
     if r1 > r2:
         return False
-    return (r1, r2)
+    return r1, r2
 
 
-def range_len(ranges, beacons, row):
+def range_len(ranges):
     result = 0
     for r in ranges:
         l = r[1] - r[0] + 1
-        beacons_in = len([b for b in beacons if r[0] <= b[0] <= r[1] and b[1] == row])
-        result += l - beacons_in
-    return result
-
-
-def range_len2(ranges):
-    result = 0
-    for r in ranges:
-        l = r[1] - r[0] + 1
-        # beacons_in = len([b for b in beacons if r[0] <= b[0] <= r[1] and b[1] == row])
         result += l
     return result
 
@@ -63,47 +42,74 @@ def filter_ranges(ranges, limit_left, limit_right):
 def solve1(b_s_list, beacons, target_line):
     result = set()
     for b_s in b_s_list:
-        ran = find_no_beacons(b_s, beacons, target_line)
-        result = add_range(result, ran)
-    print(result)
-    return range_len(result, beacons, target_line)
+        ran = find_no_beacons(b_s, target_line)
+        if ran:
+            result = add_range(result, ran)
+    len_without_beacons = len([b for b in beacons for r in result if r[0] <= b[0] <= r[1] and b[1] == target_line])
+    return range_len(result) - len_without_beacons
 
 
-def solve2(b_s_list, beacons, column_limit, row_limit):
-    no_beacons = defaultdict(set)
-    occupied_columns = {}
-    for row in range(row_limit + 1):
-        # print("ROW", row)
-        if row % 500_000 == 0: print("ROW", row)
+def solve3(args):
+    b_s_list, limit, range_from, range_to = args
+    for row in range(range_from, range_to):
+        no_beacons = set()
         for b_s in b_s_list:
-            ran = find_no_beacons(b_s, beacons, row)
-            # print('--', ran)
-            if ran:
-                no_beacons[row] = add_range(no_beacons[row], ran)
-        occupied_columns[row] = filter_ranges(no_beacons[row], 0, row_limit)
-        # print(no_beacons[row])
-        # print(filtered)
-        # print(range_len2(no_beacons[row]))
-        # print(range_len2(filtered))
-    only_row = min(occupied_columns, key=lambda x: range_len2(occupied_columns[x]))
-    print(occupied_columns[only_row])
-    # print({k:v for k,v in occupied_columns.items() if len(v)>0})
-    print(only_row)
-    s = sorted(occupied_columns[only_row])
-    return (s[0][1] + 1) * row_limit + only_row
+            new_range = find_no_beacons(b_s, row)
+            if new_range:
+                no_beacons = add_range(no_beacons, new_range)
+        occupied_columns = filter_ranges(no_beacons, 0, limit)
+        if len(occupied_columns) == 2:
+            s = sorted(occupied_columns)
+            if s[1][0] - s[0][1] == 2:
+                return (s[0][1] + 1) * limit + row
+
+
+def solve2(args):
+    b_s_list, limit, row = args
+    no_beacons = set()
+    for b_s in b_s_list:
+        new_range = find_no_beacons(b_s, row)
+        if new_range:
+            no_beacons = add_range(no_beacons, new_range)
+    occupied_columns = filter_ranges(no_beacons, 0, limit)
+    if len(occupied_columns) == 2:
+        s = sorted(occupied_columns)
+        if s[1][0] - s[0][1] == 2:
+            return (s[0][1] + 1) * limit + row
+
+
+def solve2_millions_processes(b_s_list, limit):
+    with Pool() as p:
+        result = p.map(solve2, ((b_s_list, limit, row) for row in range(limit+1)))
+        result = [r for r in result if r]
+        return result[0]
+
+
+def solve2_few_processes(b_s_list, limit):
+    with Pool() as p:
+        count = cpu_count() // 2
+        chunks = [(i * (limit // count), (i+1) * (limit // count) - 1) for i in range(count+1)]
+        result = p.map(solve3, ((b_s_list, limit, c[0], c[1]) for c in chunks))
+        result = [r for r in result if r]
+        return result[0]
 
 
 def main():
-    print(add_range({(0, 3), (5, 10), (100, 200)}, (3, 4)))
     # sensors_beacons = parse_input(day_input_test())
     sensors_beacons = parse_input(day_input())
     beacons = {(x[2], x[3]) for x in sensors_beacons}
-    # result1 = solve1(sensors_beacons, beacons, 10)
-    # result1 = solve1(sensors_beacons, beacons, 2_000_000)
-    # print(result1)
-    # result2 = solve2(sensors_beacons, beacons, 20, 20)
-    result2 = solve2(sensors_beacons, beacons, 4_000_000, 4_000_000)
-    print(result2)
+    result1 = solve1(sensors_beacons, beacons, 2_000_000)
+    print(result1)
+    print('part 2 in progress...')
+    t = time.time()
+    result2 = solve2_few_processes(sensors_beacons, 4_000_000)
+    print(f'{result2} (time elapsed: {time.time() - t} - multi CPU, few processes)')
+    t = time.time()
+    result2 = solve2_millions_processes(sensors_beacons, 4_000_000)
+    print(f'{result2} (time elapsed: {time.time() - t} - multi CPU, millions processes, possible context switching)')
+    t = time.time()
+    result2 = solve3([sensors_beacons, 4_000_000, 0, 4_000_000])
+    print(f'{result2} (time elapsed: {time.time() - t} - single CPU)')
 
 
 def parse_input(arg):
@@ -112,9 +118,6 @@ def parse_input(arg):
     result = [line.split(':') for line in result]
     result = [(line[0].split(','), line[1].split(',')) for line in result]
     result = [(int(line[0][0]), int(line[0][1]), int(line[1][0]), int(line[1][1])) for line in result]
-    # sensors = [(line[0], line[1]) for line in result]
-    # beacons = [(line[2], line[3]) for line in result]
-    # return sensors, beacons
     return result
 
 
