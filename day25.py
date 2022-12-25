@@ -12,7 +12,7 @@ def snafu_digit(sd):
 
 def snafu_to_dec(snafu):
     snafu = reversed(snafu)
-    result = reduce(lambda acc, val: acc +  5 ** val[0] * snafu_digit(val[1]), enumerate(snafu), 0)
+    result = reduce(lambda acc, val: acc + 5 ** val[0] * snafu_digit(val[1]), enumerate(snafu), 0)
     return result
 
 
